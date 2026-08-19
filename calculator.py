@@ -12,5 +12,20 @@ while True:
     except KeyboardInterrupt:
         print("\nExiting the program.")
         break
+C=[[[] for _ in range(7)] for _ in range(7)]
+c=[[0]*7 for _ in range(7)]
+for i in range(1,7):
+    c[i][0] = 1
+    C[i][0].append([-1]*i)
+    c[i][i] = 1
+    C[i][i].append([1]*i)
+for i in range(2,7):
+    for j in range(1,i):
+        c[i][j] = c[i-1][j-1] + c[i-1][j]
+        for x in C[i-1][j-1]:
+            C[i][j].append(x + [1])
+        for x in C[i-1][j]:
+            C[i][j].append(x + [-1])
+
 
 
