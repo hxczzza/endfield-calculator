@@ -12,7 +12,7 @@ while True:
         print("Invalid input. Please try again.")
     except KeyboardInterrupt:
         print("\nExiting the program.")
-        break
+        sys.exit()
 
 while True:
     try:
@@ -29,9 +29,9 @@ while True:
         sys.exit()
 
 num = 0
-for i in range(rw):
+for i in rw:
     num += i
-for i in range(cl):
+for i in cl:
     num -= i
 if num != 0:
     print("No solution found.")
@@ -54,6 +54,7 @@ for i in range(2,7):
 
 stack = []
 def prt():
+    global ways
     ways += 1
     for i in range(boardsize):
         for j in range(boardsize):
