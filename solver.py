@@ -1,9 +1,8 @@
-import sys
-
 def solve(board_size, row_targets, col_targets):
-
-    board=[[0]*6 for _ in range(6)]
-    solution_counts = 0
+    """返回所有解。每个解是 board_size×board_size 的二维列表（1=填，0=空）。
+    无解时返回空列表 []。不打印、不退出进程——GUI 需要的是数据。"""
+    board = [[0] * board_size for _ in range(board_size)]
+    solutions = []
 
     num = 0
     for i in row_targets:
@@ -11,8 +10,7 @@ def solve(board_size, row_targets, col_targets):
     for i in col_targets:
         num -= i
     if num != 0:
-        print("No solution found.")
-        sys.exit()
+        return []
 
     fill_patterns=[[[] for _ in range(7)] for _ in range(7)]
     pattern_counts=[[0]*7 for _ in range(7)]
@@ -30,17 +28,9 @@ def solve(board_size, row_targets, col_targets):
                 fill_patterns[i][j].append(former_fill_pattern_or_next_function + [-1])
 
     stack_for_changed_positions = []
-    def print_solution():
-        nonlocal solution_counts
-        solution_counts += 1
-        for i in range(board_size):
-            for j in range(board_size):
-                if board[i][j] == 1:
-                    print("X", end=" ")
-                else:
-                    print("O", end=" ")
-            print()
-        print()
+    def record_solution():
+        # 必须深拷贝：board 是复用的，回溯会把格子改回 0
+        solutions.append([row[:] for row in board])
     def try_row(index):
         nonlocal former_fill_pattern_or_next_function
         stack_for_changed_positions.append([])
@@ -56,7 +46,7 @@ def solve(board_size, row_targets, col_targets):
                 board[index][stack_for_changed_positions[-1][l]] = fill_patterns[i][j][k][l]
             next_index = find_best_line()
             if next_index == None:
-                print_solution()
+                record_solution()
                 next_index = -1
             if next_index != -1:
                 former_fill_pattern_or_next_function(next_index)
@@ -78,7 +68,7 @@ def solve(board_size, row_targets, col_targets):
                 board[stack_for_changed_positions[-1][l]][index] = fill_patterns[i][empty_remained_to_be_filled][k][l]
             next_index = find_best_line()
             if next_index == None:
-                print_solution()
+                record_solution()
                 next_index = -1
             if next_index != -1:
                 former_fill_pattern_or_next_function(next_index)
@@ -130,11 +120,10 @@ def solve(board_size, row_targets, col_targets):
 
 
     t1 = find_best_line()
+    if t1 is None or t1 == -1:
+        return solutions
     former_fill_pattern_or_next_function(t1)
-    if solution_counts == 0:
-        print("No solution found.")
-    else:
-        print(f"Total ways to fill the board: {solution_counts}")
+    return solutions
 
 
 
