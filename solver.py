@@ -1,133 +1,115 @@
-"""这一段是手写的算法，由ai添加注释"""
-def solve(board_size, row_targets, col_targets):
-    """返回所有解。每个解是 board_size×board_size 的二维列表（1=填，0=空）。
-    无解时返回空列表 []。不打印、不退出进程——GUI 需要的是数据。"""
-    board = [[0] * board_size for _ in range(board_size)]
-    solutions = []
+"""Endfield 数织求解器。
 
-    num = 0
-    for i in row_targets:
-        num += i
-    for i in col_targets:
-        num -= i
-    if num != 0:
+棋盘中的 0 表示未知格，1 表示需要填充，-1 表示不能填充。
+初始障碍只限制可填位置，不计入行列目标数。
+"""
+
+from itertools import combinations
+
+
+UNKNOWN = 0
+FILLED = 1
+EMPTY = -1
+
+
+def _normalise_blocked(board_size, blocked):
+    """把坐标集合或二维状态表统一为障碍坐标集合。"""
+    if blocked is None:
+        return set()
+
+    if isinstance(blocked, (list, tuple)) and len(blocked) == board_size:
+        if all(isinstance(row, (list, tuple)) and len(row) == board_size for row in blocked):
+            return {
+                (row, col)
+                for row in range(board_size)
+                for col in range(board_size)
+                if blocked[row][col] == EMPTY
+            }
+
+    return {tuple(position) for position in blocked}
+
+
+def solve(board_size, row_targets, col_targets, blocked=None):
+    """返回所有满足行列目标且避开初始障碍的解。
+
+    参数 ``blocked`` 可传 ``{(行, 列), ...}``，也可传 n×n 状态表；状态表中
+    ``-1`` 的位置视为障碍。每个返回解都是 n×n 二维列表（1=填，-1=空）。
+    输入非法或无解时返回空列表。
+    """
+    if not isinstance(board_size, int) or board_size < 1:
+        return []
+    if len(row_targets) != board_size or len(col_targets) != board_size:
+        return []
+    if any(not isinstance(value, int) or value < 0 for value in (*row_targets, *col_targets)):
+        return []
+    if sum(row_targets) != sum(col_targets):
         return []
 
-    fill_patterns=[[[] for _ in range(7)] for _ in range(7)]
-    pattern_counts=[[0]*7 for _ in range(7)]
-    for i in range(1,7):
-        pattern_counts[i][0] = 1
-        fill_patterns[i][0].append([-1]*i)
-        pattern_counts[i][i] = 1
-        fill_patterns[i][i].append([1]*i)
-    for i in range(2,7):
-        for j in range(1,i):
-            pattern_counts[i][j] = pattern_counts[i-1][j-1] + pattern_counts[i-1][j]
-            for former_fill_pattern_or_next_function in fill_patterns[i-1][j-1]:
-                fill_patterns[i][j].append(former_fill_pattern_or_next_function + [1])
-            for former_fill_pattern_or_next_function in fill_patterns[i-1][j]:
-                fill_patterns[i][j].append(former_fill_pattern_or_next_function + [-1])
+    try:
+        blocked_cells = _normalise_blocked(board_size, blocked)
+    except (TypeError, ValueError):
+        return []
+    if any(
+        len(position) != 2
+        or not all(isinstance(value, int) for value in position)
+        or not (0 <= position[0] < board_size and 0 <= position[1] < board_size)
+        for position in blocked_cells
+    ):
+        return []
 
-    stack_for_changed_positions = []
-    def record_solution():
-        # 必须深拷贝：board 是复用的，回溯会把格子改回 0
-        solutions.append([row[:] for row in board])
-    def try_row(index):
-        nonlocal former_fill_pattern_or_next_function
-        stack_for_changed_positions.append([])
-        j = row_targets[index]
-        for i in range(board_size):
-            if board[index][i] == 0:
-                stack_for_changed_positions[-1].append(i)
-            if board[index][i] == 1:
-                j -= 1
-        i = len(stack_for_changed_positions[-1])
-        for k in range(pattern_counts[i][j]):
-            for l in range(i):
-                board[index][stack_for_changed_positions[-1][l]] = fill_patterns[i][j][k][l]
-            next_index = find_best_line()
-            if next_index == None:
-                record_solution()
-                next_index = -1
-            if next_index != -1:
-                former_fill_pattern_or_next_function(next_index)
-            for l in range(i):
-                board[index][stack_for_changed_positions[-1][l]] = 0
-        stack_for_changed_positions.pop()
-    def try_col(index):
-        nonlocal former_fill_pattern_or_next_function
-        stack_for_changed_positions.append([])
-        empty_remained_to_be_filled = col_targets[index]
-        for i in range(board_size):
-            if board[i][index] == 0:
-                stack_for_changed_positions[-1].append(i)
-            if board[i][index] == 1:
-                empty_remained_to_be_filled -= 1
-        i = len(stack_for_changed_positions[-1])
-        for k in range(pattern_counts[i][empty_remained_to_be_filled]):
-            for l in range(i):
-                board[stack_for_changed_positions[-1][l]][index] = fill_patterns[i][empty_remained_to_be_filled][k][l]
-            next_index = find_best_line()
-            if next_index == None:
-                record_solution()
-                next_index = -1
-            if next_index != -1:
-                former_fill_pattern_or_next_function(next_index)
-            for l in range(i):
-                board[stack_for_changed_positions[-1][l]][index] = 0
-        stack_for_changed_positions.pop()
-        
+    available_by_row = [
+        [col for col in range(board_size) if (row, col) not in blocked_cells]
+        for row in range(board_size)
+    ]
+    if any(row_targets[row] > len(available_by_row[row]) for row in range(board_size)):
+        return []
+    if any(
+        col_targets[col]
+        > sum((row, col) not in blocked_cells for row in range(board_size))
+        for col in range(board_size)
+    ):
+        return []
 
+    row_patterns = [
+        [frozenset(cols) for cols in combinations(available_by_row[row], row_targets[row])]
+        for row in range(board_size)
+    ]
+    col_filled = [0] * board_size
+    solutions = []
+    chosen_rows = [frozenset() for _ in range(board_size)]
+    row_order = sorted(range(board_size), key=lambda row: len(row_patterns[row]))
 
-    former_fill_pattern_or_next_function = try_row
-    def find_best_line():
-        nonlocal former_fill_pattern_or_next_function 
-        min = 21
-        t = None
-        for i in range(board_size):
-            empty_count = 0
-            empty_remained_to_be_filled=row_targets[i]
-            for j in range(board_size):
-                if board[i][j] == 1:
-                    empty_remained_to_be_filled -= 1
-                if board[i][j] == 0:
-                    empty_count += 1
-            if empty_remained_to_be_filled < 0 or empty_remained_to_be_filled > empty_count:
-                return -1
-            if empty_count == 0:
+    def can_still_reach_targets(depth):
+        remaining_rows = row_order[depth:]
+        for col in range(board_size):
+            if col_filled[col] > col_targets[col]:
+                return False
+            possible = sum((row, col) not in blocked_cells for row in remaining_rows)
+            if col_filled[col] + possible < col_targets[col]:
+                return False
+        return True
+
+    def search(depth):
+        if depth == board_size:
+            if col_filled == list(col_targets):
+                solutions.append([
+                    [FILLED if col in chosen_rows[row] else EMPTY for col in range(board_size)]
+                    for row in range(board_size)
+                ])
+            return
+
+        row = row_order[depth]
+        for pattern in row_patterns[row]:
+            if any(col_filled[col] >= col_targets[col] for col in pattern):
                 continue
-            if pattern_counts[empty_count][empty_remained_to_be_filled] < min:
-                min = pattern_counts[empty_count][empty_remained_to_be_filled]
-                former_fill_pattern_or_next_function = try_row
-                t = i
-        for j in range(board_size):
-            empty_count=0
-            empty_remained_to_be_filled=col_targets[j]
-            for i in range(board_size):
-                if board[i][j] == 1:
-                    empty_remained_to_be_filled -= 1
-                if board[i][j] == 0:
-                    empty_count += 1
-            if empty_remained_to_be_filled < 0 or empty_remained_to_be_filled > empty_count:
-                return -1
-            if empty_count == 0:
-                continue
-            if pattern_counts[empty_count][empty_remained_to_be_filled] < min:
-                min = pattern_counts[empty_count][empty_remained_to_be_filled]
-                former_fill_pattern_or_next_function = try_col
-                t = j
-        return t
+            chosen_rows[row] = pattern
+            for col in pattern:
+                col_filled[col] += 1
+            if can_still_reach_targets(depth + 1):
+                search(depth + 1)
+            for col in pattern:
+                col_filled[col] -= 1
 
-
-
-    t1 = find_best_line()
-    if t1 is None or t1 == -1:
-        return solutions
-    former_fill_pattern_or_next_function(t1)
+    if can_still_reach_targets(0):
+        search(0)
     return solutions
-
-
-
-
-
-
