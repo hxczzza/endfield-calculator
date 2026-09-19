@@ -1,3 +1,4 @@
+"""这一段是手写的算法，由ai添加注释"""
 def solve(board_size, row_targets, col_targets):
     """返回所有解。每个解是 board_size×board_size 的二维列表（1=填，0=空）。
     无解时返回空列表 []。不打印、不退出进程——GUI 需要的是数据。"""
