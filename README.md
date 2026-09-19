@@ -20,9 +20,13 @@ Clone this repository:
 ```bash
 git clone https://github.com/hxczzza/endfield-calculator.git
 cd endfield-calculator
+```
+
+
 
 ## Usage
 Run the program with:
 
 ```bash
 python main.py
+```
